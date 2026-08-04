@@ -6742,7 +6742,9 @@ test.group('Base Model | datetime', (group) => {
     const fetchedJoinedAt =
       createdUser.joined_at instanceof Date
         ? DateTime.fromJSDate(createdUser.joined_at)
-        : DateTime.fromSQL(createdUser.joined_at)
+        : typeof createdUser.joined_at === 'number'
+          ? DateTime.fromMillis(createdUser.joined_at)
+          : DateTime.fromSQL(createdUser.joined_at)
 
     assert.equal(
       fetchedJoinedAt.toFormat(clientDateFormat),

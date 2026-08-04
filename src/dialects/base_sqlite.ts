@@ -7,6 +7,7 @@
  * file that was distributed with this source code.
  */
 
+import { DateTime } from 'luxon'
 import type {
   DialectContract,
   QueryClientContract,
@@ -42,6 +43,24 @@ export abstract class BaseSqliteDialect implements DialectContract {
    * valid for luxon date parsing library
    */
   readonly dateTimeFormat = 'yyyy-MM-dd HH:mm:ss'
+
+  /**
+   * SQLite has no date type, so a datetime saved as text is compared as
+   * text. Epoch milliseconds compare as numbers instead, which sorts
+   * correctly, keeps sub-second precision that the text format has no room
+   * for, and matches what knex already does with a JS Date on this driver.
+   */
+  formatDateTime(value: DateTime): number {
+    return value.toMillis()
+  }
+
+  /**
+   * The other half of formatDateTime. Text rows written before this
+   * dialect stored numbers still read back through the shared fallback.
+   */
+  parseDateTime(value: unknown): DateTime | undefined {
+    return typeof value === 'number' ? DateTime.fromMillis(value) : undefined
+  }
 
   constructor(
     private client: QueryClientContract,
