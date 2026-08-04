@@ -8,6 +8,8 @@
  */
 
 import { DateTime } from 'luxon'
+
+import { formatDateValue, parseDateValue } from '../../utils/index.js'
 import { type LucidRow, type LucidModel, type DateTimeColumnDecorator } from '../../types/model.js'
 import * as errors from '../../errors.js'
 
@@ -38,8 +40,8 @@ function prepareDateTimeColumn(value: any, attributeName: string, modelInstance:
       ])
     }
 
-    const dateTimeFormat = model.query(modelInstance.$options).client.dialect.dateTimeFormat
-    return value.toFormat(dateTimeFormat)
+    const dialect = model.query(modelInstance.$options).client.dialect
+    return formatDateValue(value, dialect, 'datetime')
   }
 
   /**
@@ -62,18 +64,14 @@ function consumeDateTimeColumn(value: any, attributeName: string, modelInstance:
     return value
   }
 
-  /**
-   * Convert from string
-   */
-  if (typeof value === 'string') {
-    return DateTime.fromSQL(value)
-  }
-
-  /**
-   * Convert from date
-   */
-  if (value instanceof Date) {
-    return DateTime.fromJSDate(value)
+  const model = modelInstance.constructor as LucidModel
+  const parsed = parseDateValue(
+    value,
+    () => model.$adapter.modelClient(modelInstance).dialect,
+    'datetime'
+  )
+  if (parsed) {
+    return parsed
   }
 
   /**

@@ -72,11 +72,67 @@ export function collectValues(payload: any[], key: string, missingCallback: () =
 }
 
 /**
+ * The one place that decides what a Luxon DateTime looks like once it
+ * reaches the database.
+ *
+ * Both ends of every comparison go through here: the column's prepare
+ * function when saving, and the query builder when the same value appears
+ * in a where clause. Keeping them together is what stops a value being
+ * saved in one form and looked up in another.
+ *
+ * A dialect can take over by implementing formatDateTime or formatDate.
+ * Without them the behaviour is what it has always been.
+ */
+export function formatDateValue(
+  value: DateTime,
+  dialect: DialectContract,
+  kind: 'date' | 'datetime'
+): string | number {
+  if (kind === 'date') {
+    return dialect.formatDate ? dialect.formatDate(value) : value.toISODate()!
+  }
+
+  return dialect.formatDateTime
+    ? dialect.formatDateTime(value)
+    : value.toFormat(dialect.dateTimeFormat)
+}
+
+/**
+ * The read side of formatDateValue. A dialect that formats a value its own
+ * way parses it back the same way; anything else falls through to the
+ * shapes every dialect has always returned.
+ *
+ * Returns undefined when the value cannot be read, so the caller can raise
+ * the error that names the column.
+ */
+export function parseDateValue(
+  value: unknown,
+  getDialect: () => DialectContract,
+  kind: 'date' | 'datetime'
+): DateTime | undefined {
+  /**
+   * The shapes every dialect has always returned. Checked first so reading
+   * a row never pays for a dialect lookup it does not need.
+   */
+  if (typeof value === 'string') {
+    return DateTime.fromSQL(value)
+  }
+
+  if (value instanceof Date) {
+    return DateTime.fromJSDate(value)
+  }
+
+  const dialect = getDialect()
+  const parse = kind === 'date' ? dialect.parseDate : dialect.parseDateTime
+  return parse ? parse.call(dialect, value) : undefined
+}
+
+/**
  * Transform value if it is an instance of DateTime, so it can be processed by query builder
  */
 export function transformDateValue(value: unknown, dialect: DialectContract) {
   if (DateTime.isDateTime(value)) {
-    return value.toFormat(dialect.dateTimeFormat)
+    return formatDateValue(value, dialect, 'datetime')
   }
 
   return value

@@ -8,6 +8,8 @@
  */
 
 import { DateTime } from 'luxon'
+
+import { formatDateValue, parseDateValue } from '../../utils/index.js'
 import * as errors from '../../errors.js'
 import { type LucidRow, type LucidModel, type DateColumnDecorator } from '../../types/model.js'
 
@@ -24,7 +26,8 @@ function prepareDateColumn(value: any, attributeName: string, modelInstance: Luc
     return value
   }
 
-  const modelName = modelInstance.constructor.name
+  const model = modelInstance.constructor as LucidModel
+  const modelName = model.name
 
   /**
    * Format luxon instances to SQL formatted date
@@ -37,7 +40,8 @@ function prepareDateColumn(value: any, attributeName: string, modelInstance: Luc
       ])
     }
 
-    return value.toISODate()
+    const dialect = model.query(modelInstance.$options).client.dialect
+    return formatDateValue(value, dialect, 'date')
   }
 
   /**
@@ -60,11 +64,14 @@ function consumeDateColumn(value: any, attributeName: string, modelInstance: Luc
     return value
   }
 
-  /**
-   * Convert from string
-   */
-  if (typeof value === 'string') {
-    return DateTime.fromSQL(value)
+  const model = modelInstance.constructor as LucidModel
+  const parsed = parseDateValue(
+    value,
+    () => model.$adapter.modelClient(modelInstance).dialect,
+    'date'
+  )
+  if (parsed) {
+    return parsed
   }
 
   /**

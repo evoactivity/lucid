@@ -7,6 +7,7 @@
  * file that was distributed with this source code.
  */
 
+import { type DateTime } from 'luxon'
 import type { Knex } from 'knex'
 import type { Pool } from 'tarn'
 import type { EventEmitter } from 'node:events'
@@ -57,6 +58,23 @@ export interface DialectContract {
     | 'libsql'
     | 'better-sqlite3'
   readonly dateTimeFormat: string
+
+  /**
+   * Convert a Luxon DateTime into the value this database stores for a
+   * datetime or a date column. A dialect that does not implement these
+   * falls back to formatting with "dateTimeFormat" and toISODate(), which
+   * is what every dialect did before they existed.
+   */
+  formatDateTime?(value: DateTime): string | number
+  formatDate?(value: DateTime): string | number
+
+  /**
+   * Read back what the matching format method wrote. A dialect that
+   * changes how a value is stored is responsible for both ends, so the
+   * two can never drift apart.
+   */
+  parseDateTime?(value: unknown): DateTime | undefined
+  parseDate?(value: unknown): DateTime | undefined
 
   readonly version?: string
   readonly supportsAdvisoryLocks: boolean

@@ -24,7 +24,7 @@ import { type OneOrMany } from '../../../types/querybuilder.js'
 import { type ManyToMany } from './index.js'
 import { ManyToManyQueryBuilder } from './query_builder.js'
 import { ManyToManySubQueryBuilder } from './sub_query_builder.js'
-import { managedTransaction, syncDiff } from '../../../utils/index.js'
+import { managedTransaction, syncDiff, formatDateValue } from '../../../utils/index.js'
 
 /**
  * ------------------------------------------------------------
@@ -66,14 +66,18 @@ export class ManyToManyQueryClient implements ManyToManyClientContract<ManyToMan
     const timestamps: ModelObject = {}
 
     if (this.relation.pivotCreatedAtTimestamp && !updatedAtOnly) {
-      timestamps[this.relation.pivotCreatedAtTimestamp] = DateTime.local().toFormat(
-        this.client.dialect.dateTimeFormat
+      timestamps[this.relation.pivotCreatedAtTimestamp] = formatDateValue(
+        DateTime.local(),
+        this.client.dialect,
+        'datetime'
       )
     }
 
     if (this.relation.pivotUpdatedAtTimestamp) {
-      timestamps[this.relation.pivotUpdatedAtTimestamp] = DateTime.local().toFormat(
-        this.client.dialect.dateTimeFormat
+      timestamps[this.relation.pivotUpdatedAtTimestamp] = formatDateValue(
+        DateTime.local(),
+        this.client.dialect,
+        'datetime'
       )
     }
 
