@@ -129,13 +129,13 @@ export abstract class Chainable extends Macroable implements ChainableContract {
   /**
    * Returns the value pair for the `whereBetween` clause
    */
-  private getBetweenPair(value: any[]): any {
+  private getBetweenPair(value: any[], key?: any): any {
     const [lhs, rhs] = value
     if (lhs === undefined || rhs === undefined) {
       throw new Error('Invalid array for whereBetween value')
     }
 
-    return [this.transformValue(lhs), this.transformValue(rhs)]
+    return [this.transformValue(lhs, key), this.transformValue(rhs, key)]
   }
 
   /**
@@ -235,7 +235,7 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    * 3. Wrapping callbacks, so that the end user receives an instance Lucid query
    *    builder and not knex query builder.
    */
-  protected transformValue(value: any) {
+  protected transformValue(value: any, key?: any) {
     if (value instanceof Chainable) {
       return value.toKnex()
     }
@@ -248,6 +248,15 @@ export abstract class Chainable extends Macroable implements ChainableContract {
       return this.transformCallback(value)
     }
 
+    return this.transformColumnValue(value, key)
+  }
+
+  /**
+   * Hook for subclasses that know which column a value is being compared
+   * against. The base builder has no column metadata, so it passes the
+   * value through untouched.
+   */
+  protected transformColumnValue(value: any, _key?: any) {
     return this.transformRaw(value)
   }
 
@@ -346,12 +355,12 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     if (value !== undefined) {
       whereClauses.push({
         method: 'where',
-        args: [this.resolveColumn(key), operator, this.transformValue(value)],
+        args: [this.resolveColumn(key), operator, this.transformValue(value, key)],
       })
     } else if (operator !== undefined) {
       whereClauses.push({
         method: 'where',
-        args: [this.resolveColumn(key), this.transformValue(operator)],
+        args: [this.resolveColumn(key), this.transformValue(operator, key)],
       })
     } else {
       /**
@@ -377,12 +386,12 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     if (value !== undefined) {
       whereClauses.push({
         method: 'orWhere',
-        args: [this.resolveColumn(key), operator, this.transformValue(value)],
+        args: [this.resolveColumn(key), operator, this.transformValue(value, key)],
       })
     } else if (operator !== undefined) {
       whereClauses.push({
         method: 'orWhere',
-        args: [this.resolveColumn(key), this.transformValue(operator)],
+        args: [this.resolveColumn(key), this.transformValue(operator, key)],
       })
     } else {
       this.validateWhereSingleArgument(key, 'orWhere')
@@ -411,12 +420,12 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     if (value !== undefined) {
       whereClauses.push({
         method: 'whereNot',
-        args: [this.resolveColumn(key), operator, this.transformValue(value)],
+        args: [this.resolveColumn(key), operator, this.transformValue(value, key)],
       })
     } else if (operator !== undefined) {
       whereClauses.push({
         method: 'whereNot',
-        args: [this.resolveColumn(key), this.transformValue(operator)],
+        args: [this.resolveColumn(key), this.transformValue(operator, key)],
       })
     } else {
       this.validateWhereSingleArgument(key, 'whereNot')
@@ -438,12 +447,12 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     if (value !== undefined) {
       whereClauses.push({
         method: 'orWhereNot',
-        args: [this.resolveColumn(key), operator, this.transformValue(value)],
+        args: [this.resolveColumn(key), operator, this.transformValue(value, key)],
       })
     } else if (operator !== undefined) {
       whereClauses.push({
         method: 'orWhereNot',
-        args: [this.resolveColumn(key), this.transformValue(operator)],
+        args: [this.resolveColumn(key), this.transformValue(operator, key)],
       })
     } else {
       this.validateWhereSingleArgument(key, 'orWhereNot')
@@ -534,8 +543,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   whereIn(columns: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, columns))
+      : this.transformValue(value, columns)
 
     columns = Array.isArray(columns)
       ? columns.map((column) => this.resolveColumn(column))
@@ -554,8 +563,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   orWhereIn(columns: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, columns))
+      : this.transformValue(value, columns)
 
     columns = Array.isArray(columns)
       ? columns.map((column) => this.resolveColumn(column))
@@ -581,8 +590,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   whereNotIn(columns: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, columns))
+      : this.transformValue(value, columns)
 
     columns = Array.isArray(columns)
       ? columns.map((column) => this.resolveColumn(column))
@@ -601,8 +610,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   orWhereNotIn(columns: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, columns))
+      : this.transformValue(value, columns)
 
     columns = Array.isArray(columns)
       ? columns.map((column) => this.resolveColumn(column))
@@ -754,7 +763,7 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     const whereClauses = this.getRecentStackItem()
     whereClauses.push({
       method: 'whereBetween',
-      args: [this.resolveColumn(key), this.getBetweenPair(value)],
+      args: [this.resolveColumn(key), this.getBetweenPair(value, key)],
     })
     return this
   }
@@ -766,7 +775,7 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     const whereClauses = this.getRecentStackItem()
     whereClauses.push({
       method: 'orWhereBetween',
-      args: [this.resolveColumn(key), this.getBetweenPair(value)],
+      args: [this.resolveColumn(key), this.getBetweenPair(value, key)],
     })
     return this
   }
@@ -785,7 +794,7 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     const whereClauses = this.getRecentStackItem()
     whereClauses.push({
       method: 'whereNotBetween',
-      args: [this.resolveColumn(key), this.getBetweenPair(value)],
+      args: [this.resolveColumn(key), this.getBetweenPair(value, key)],
     })
     return this
   }
@@ -797,7 +806,7 @@ export abstract class Chainable extends Macroable implements ChainableContract {
     const whereClauses = this.getRecentStackItem()
     whereClauses.push({
       method: 'orWhereNotBetween',
-      args: [this.resolveColumn(key), this.getBetweenPair(value)],
+      args: [this.resolveColumn(key), this.getBetweenPair(value, key)],
     })
     return this
   }
@@ -1406,8 +1415,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   havingIn(key: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, key))
+      : this.transformValue(value, key)
 
     this.knexQuery.havingIn(this.resolveColumn(key), value)
     return this
@@ -1418,8 +1427,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   orHavingIn(key: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, key))
+      : this.transformValue(value, key)
     ;(this.knexQuery as any)['orHavingIn'](this.resolveColumn(key), value)
     return this
   }
@@ -1436,8 +1445,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   havingNotIn(key: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, key))
+      : this.transformValue(value, key)
 
     this.knexQuery['havingNotIn'](this.resolveColumn(key), value)
     return this
@@ -1448,8 +1457,8 @@ export abstract class Chainable extends Macroable implements ChainableContract {
    */
   orHavingNotIn(key: any, value: any): this {
     value = Array.isArray(value)
-      ? value.map((one) => this.transformValue(one))
-      : this.transformValue(value)
+      ? value.map((one) => this.transformValue(one, key))
+      : this.transformValue(value, key)
 
     this.knexQuery['orHavingNotIn'](this.resolveColumn(key), value)
     return this

@@ -8,6 +8,7 @@
  */
 
 import { type Knex } from 'knex'
+import { DateTime } from 'luxon'
 import { Exception } from '@poppinss/utils/exception'
 
 import {
@@ -32,7 +33,7 @@ import {
 
 import { type DBQueryCallback, type Dictionary, type OneOrMany } from '../../types/querybuilder.js'
 
-import { isObject } from '../../utils/index.js'
+import { formatDateValue, isObject } from '../../utils/index.js'
 import { Preloader } from '../preloader/index.js'
 import { ModelPaginator } from '../paginator/index.js'
 import { QueryRunner } from '../../query_runner/index.js'
@@ -166,6 +167,29 @@ export class ModelQueryBuilder
     if (!(builder as any)['_single'] || !(builder as any)['_single'].table) {
       builder.table(model.table)
     }
+  }
+
+  /**
+   * Formats a Luxon DateTime the same way the column would format it when
+   * persisting, so a value can be compared against the form it was saved
+   * in. The column decides: a date column takes an ISO date, a datetime
+   * column takes the dialect's datetime format.
+   *
+   * Anything else, and any value on a column we cannot resolve, is left
+   * alone.
+   */
+  protected transformColumnValue(value: any, key?: any) {
+    if (!DateTime.isDateTime(value) || typeof key !== 'string') {
+      return super.transformColumnValue(value, key)
+    }
+
+    const columnType = this.model.$getColumn(key)?.meta?.type
+
+    if (columnType !== 'date' && columnType !== 'datetime') {
+      return super.transformColumnValue(value, key)
+    }
+
+    return super.transformColumnValue(formatDateValue(value, this.client.dialect, columnType), key)
   }
 
   /**
